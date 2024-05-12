@@ -8,6 +8,10 @@ const {
   resetPassword,
   updateProfilePic,
 } = require("../../../controllers/auth/userController");
+const {
+  test,
+  imageUpload,
+} = require("../../../controllers/auth/testController");
 
 const _ = Router();
 
@@ -16,5 +20,6 @@ _.route("/user/create").post(createUser).put(verifyAccount);
 _.route("/user/login").post(loginUser).put(verifyAccount); //check after
 _.route("/user/resetpassword").post(sendResetPassMail).put(resetPassword);
 _.route("/user/updateprofileimage").post(updateProfilePic).put(resetPassword); // check after
+_.route("/user/test").post(test); // check after
 
 module.exports = _;

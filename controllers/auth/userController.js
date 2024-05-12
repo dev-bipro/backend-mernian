@@ -17,6 +17,7 @@ const sendMail = require("../../helpers/user/sendMail");
 const Post = require("../../models/postModel");
 const User = require("../../models/userModel");
 const otpGenerator = require("otp-generator");
+const fs = require("fs");
 
 exports.createUser = async (req, res) => {
   // res.send("ami create user");
@@ -364,26 +365,43 @@ exports.updateProfilePic = async (req, res) => {
         message: "Invalid User",
       });
     } else {
-      let upload = new Post({ ...req.body, types: "profilePic" });
-      try {
-        upload = await upload.save();
-        let data = await User.findByIdAndUpdate(
-          upload.ownerId,
-          {
-            profilePic: upload._id,
-          },
-          { new: true }
-        ).populate("profilePic");
-        data = data.toObject();
-        delete data.password;
-        delete data.otp;
-        return res.status(200).send({
-          message: "Picture Change Successfull",
-          data,
-        });
-      } catch (error) {
-        console.log(error);
-      }
+      const fileName = `/uploads/profile-picture-${Date.now()}.webp`;
+      const imageArr = image.split(",");
+
+      fs.writeFile("." + fileName, imageArr[1], "base64", async function (err) {
+        if (err) {
+          // console.log(err);
+          return res.status(400).send({
+            message: "Picture Upload Problem",
+          });
+        } else {
+          console.log("awesome", fileName);
+          let upload = new Post({
+            ...req.body,
+            image: fileName,
+            types: "profilePic",
+          });
+          try {
+            upload = await upload.save();
+            let data = await User.findByIdAndUpdate(
+              upload.ownerId,
+              {
+                profilePic: upload._id,
+              },
+              { new: true }
+            ).populate("profilePic");
+            data = data.toObject();
+            delete data.password;
+            delete data.otp;
+            return res.status(200).send({
+              message: "Picture Change Successfull",
+              data,
+            });
+          } catch (error) {
+            console.log(error);
+          }
+        }
+      });
     }
   }
 };
