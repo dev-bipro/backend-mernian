@@ -1,19 +1,30 @@
 const { Schema, models, model } = require("mongoose");
 
 const postSchema = new Schema({
-  name: {
-    type: String,
-    required: [true, "pleace type your name"],
-  },
-
   ownerId: {
     type: Schema.Types.ObjectId,
+    required: true,
   },
 
+  text: {
+    type: String,
+  },
   image: {
     type: String,
-    required: [true, "no image selected"],
+    // required: [true, "no image selected"],
   },
+  images: [
+    {
+      type: String,
+      // required: [true, "no image selected"],
+    },
+  ],
+  videos: [
+    {
+      type: String,
+      // required: [true, "no image selected"],
+    },
+  ],
   types: {
     type: String,
     enum: ["profilePic", "coverPic", "post"],
