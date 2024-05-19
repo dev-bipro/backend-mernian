@@ -1,8 +1,9 @@
-const { Schema, models, model } = require("mongoose");
+const { Schema, models, model, Types } = require("mongoose");
 
 const postSchema = new Schema({
   ownerId: {
     type: Schema.Types.ObjectId,
+    ref: "User",
     required: true,
   },
 
@@ -22,6 +23,20 @@ const postSchema = new Schema({
   videos: [
     {
       type: String,
+      // required: [true, "no image selected"],
+    },
+  ],
+  reacts: [
+    {
+      type: Types.ObjectId,
+      ref: "React",
+      // required: [true, "no image selected"],
+    },
+  ],
+  comments: [
+    {
+      type: Types.ObjectId,
+      ref: "Comment",
       // required: [true, "no image selected"],
     },
   ],

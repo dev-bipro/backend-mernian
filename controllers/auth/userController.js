@@ -218,6 +218,27 @@ exports.loginUser = async (req, res) => {
     }
   }
 };
+
+exports.allUser = async (req, res) => {
+  const { loginuser } = req.query;
+
+  if (!loginuser) {
+    return res.status(404).send({ message: "User not found" });
+  }
+  const isAccount = haveAccount(loginuser);
+
+  if (!isAccount || isAccount?.error) {
+    return res.status(404).send({ message: "User not found" });
+  }
+  try {
+    let data = await User.find({ _id: { $ne: loginuser } });
+    return res.status(200).send({ data });
+  } catch (error) {
+    return res.status(500).send({
+      message: "Internal Server Error",
+    });
+  }
+};
 exports.sendResetPassMail = async (req, res) => {
   const { email } = req.body;
 
