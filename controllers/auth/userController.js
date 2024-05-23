@@ -126,6 +126,7 @@ exports.verifyAccount = async (req, res) => {
               });
             } else {
               try {
+                console.log(isAccount.email);
                 await User.findOneAndUpdate(
                   { email: isAccount.email },
                   {
@@ -231,7 +232,12 @@ exports.allUser = async (req, res) => {
     return res.status(404).send({ message: "User not found" });
   }
   try {
-    let data = await User.find({ _id: { $ne: loginuser } });
+    let data = await User.find({
+      _id: { $ne: loginuser },
+      verified: true,
+    })
+      .select("-password -verified -otp")
+      .populate("profilePic coverPic");
     return res.status(200).send({ data });
   } catch (error) {
     return res.status(500).send({

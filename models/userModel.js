@@ -59,15 +59,20 @@ const userSchema = new Schema({
       }
     },
   },
+  coverPicAvatar: {
+    type: String,
+    default:
+      "https://timelinecovers.pro/facebook-cover/download/Avatar-eye-facebook-cover.jpg",
+  },
   profilePic: {
     type: Schema.Types.ObjectId,
     ref: "Post",
   },
   coverPic: {
-    type: String,
-    default:
-      "https://timelinecovers.pro/facebook-cover/download/Avatar-eye-facebook-cover.jpg",
+    type: Schema.Types.ObjectId,
+    ref: "Post",
   },
+
   about: {
     type: Schema.Types.ObjectId,
     ref: "About",
@@ -131,7 +136,9 @@ userSchema.post("save", async function (doc, next) {
   const email = await emailToken(doc.email);
   console.log(email);
 
-  const template = `<h2>please verify your email</h2></br><a href=${`http://localhost:5173/verify/${email}`}>click to verify</a>`;
+  const template = `<h2>please verify your email</h2></br><p>your otp is :  ${
+    doc.otp
+  }</p></br><a href=${`http://localhost:5173/verify/${email}`}>click to verify</a>`;
   try {
     // Wait for 10 seconds
     await sendMail(doc.email, template);
