@@ -8,6 +8,12 @@ const {
   resetPassword,
   updateProfilePic,
   allUser,
+  sendFriendRequest,
+  allFriendRequest,
+  allSemdFriendRequest,
+  cancelSendFriendRequest,
+  acceptFriendRequest,
+  allFriend,
 } = require("../../../controllers/auth/userController");
 const {
   test,
@@ -23,5 +29,11 @@ _.route("/user/alluser").get(allUser);
 _.route("/user/resetpassword").post(sendResetPassMail).put(resetPassword);
 _.route("/user/updateprofileimage").post(updateProfilePic); // check after
 _.route("/user/test").post(test); // check after
+_.route("/user/friendrequest")
+  .post(sendFriendRequest)
+  .get(allFriendRequest)
+  .put(allSemdFriendRequest)
+  .delete(cancelSendFriendRequest);
+_.route("/user/friend").post(acceptFriendRequest).get(allFriend);
 
 module.exports = _;

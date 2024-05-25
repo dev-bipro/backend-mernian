@@ -18,6 +18,10 @@ const Post = require("../../models/postModel");
 const User = require("../../models/userModel");
 const otpGenerator = require("otp-generator");
 const fs = require("fs");
+const FriendRequest = require("../../models/friendRequestModel");
+const Friend = require("../../models/friendModel");
+const isFriendRequest = require("../../helpers/user/isFriendRequest");
+const isFriend = require("../../helpers/user/isFriend");
 
 exports.createUser = async (req, res) => {
   // res.send("ami create user");
@@ -226,7 +230,7 @@ exports.allUser = async (req, res) => {
   if (!loginuser) {
     return res.status(404).send({ message: "User not found" });
   }
-  const isAccount = haveAccount(loginuser);
+  const isAccount = await haveUser(loginuser);
 
   if (!isAccount || isAccount?.error) {
     return res.status(404).send({ message: "User not found" });
@@ -425,10 +429,291 @@ exports.updateProfilePic = async (req, res) => {
               data,
             });
           } catch (error) {
-            console.log(error);
+            return res.status(500).send({
+              message: "Internal Server Error",
+            });
           }
         }
       });
     }
   }
 };
+
+exports.sendFriendRequest = async (req, res) => {
+  const { sender, receiver } = req.body;
+
+  if (!sender || !receiver) {
+    return res.status(400).send({
+      message: "invalid request",
+    });
+  }
+  const isSenderAccount = await haveUser(sender);
+
+  if (isSenderAccount?.error || !isSenderAccount) {
+    return res.status(404).send({
+      message: "Invalid Login User",
+    });
+  }
+  const isReceiverAccount = await haveUser(receiver);
+
+  if (isReceiverAccount?.error || !isReceiverAccount) {
+    return res.status(404).send({
+      message: "Invalid Receiver Id",
+    });
+  }
+
+  const haveFriend = await isFriend(sender, receiver);
+
+  if (haveFriend?.error) {
+    return res.status(500).send({
+      message: "Internal Server Error",
+    });
+  }
+
+  if (haveFriend?._id) {
+    return res.status(400).send({ message: "You Are Already Friend" });
+  }
+
+  FriendRequest.findOne({
+    $or: [
+      { sender, receiver },
+      { sender: receiver, receiver: sender },
+    ],
+  })
+    .then(async (alreadyHave) => {
+      // console.log(alreadyHave);
+      if (alreadyHave) {
+        if (alreadyHave.sender == sender) {
+          return res.status(400).send({
+            message: "You Are Already Send Request To This User",
+          });
+        } else {
+          return res.status(400).send({
+            message: "This User Already Send Request To You",
+          });
+        }
+      } else {
+        const data = new FriendRequest(req.body);
+
+        try {
+          await data.save();
+
+          return res.status(200).send({
+            message: "Sent Friend Request Successfull",
+          });
+        } catch (error) {
+          return res.status(500).send({
+            message: "Internal Server Error",
+          });
+        }
+      }
+    })
+    .catch((error) => {
+      return res.status(500).send({
+        message: "Internal Server Error",
+      });
+    });
+};
+
+exports.allFriendRequest = async (req, res) => {
+  const { loginuser } = req.query;
+
+  if (!loginuser) {
+    return res.status(404).send({ message: "User not found" });
+  }
+  const isAccount = await haveUser(loginuser);
+
+  if (!isAccount || isAccount?.error) {
+    return res.status(404).send({ message: "User not found" });
+  }
+  try {
+    let data = await FriendRequest.find({
+      receiver: loginuser,
+    }).populate(
+      { path: "sender", select: "-password -verified -otp" } // Populate another field if necessary
+    );
+    // .select("-password -verified -otp");
+    return res.status(200).send({ data });
+  } catch (error) {
+    return res.status(500).send({
+      message: "Internal Server Error",
+    });
+  }
+};
+exports.allSemdFriendRequest = async (req, res) => {
+  const { loginuser } = req.query;
+
+  if (!loginuser) {
+    return res.status(404).send({ message: "User not found" });
+  }
+  const isAccount = await haveUser(loginuser);
+
+  if (!isAccount || isAccount?.error) {
+    return res.status(404).send({ message: "User not found" });
+  }
+  try {
+    let data = await FriendRequest.find({
+      sender: loginuser,
+    }).populate({ path: "receiver", select: "-password -verified -otp" });
+    // .select("-password -verified -otp");
+    return res.status(200).send({ data });
+  } catch (error) {
+    return res.status(500).send({
+      message: "Internal Server Error",
+    });
+  }
+};
+exports.cancelSendFriendRequest = async (req, res) => {
+  // const { loginuser } = req.query;
+  const { sender, receiver } = req.body;
+
+  if (!sender || !receiver) {
+    return res.status(400).send({
+      message: "invalid request",
+    });
+  }
+  const isSenderAccount = await haveUser(sender);
+
+  if (isSenderAccount?.error || !isSenderAccount) {
+    return res.status(404).send({
+      message: "Invalid Login User",
+    });
+  }
+  const isReceiverAccount = await haveUser(receiver);
+
+  if (isReceiverAccount?.error || !isReceiverAccount) {
+    return res.status(404).send({
+      message: "Invalid Receiver Id",
+    });
+  }
+  // try {
+  FriendRequest.findOne({ sender, receiver })
+    .populate("sender receiver")
+    .then(async (isRequest) => {
+      // console.log(alreadyHave);
+      if (!isRequest) {
+        return res.status(410).send({ message: "No Request Found" });
+      } else {
+        try {
+          let data = await FriendRequest.deleteOne({
+            _id: isRequest._id,
+          });
+          // console.log(data);
+          if (data.deletedCount > 0) {
+            // return res
+            return res
+              .status(200)
+              .send({ message: "Request Cancel Sucessfull" });
+          }
+          return res
+            .status(410)
+            .send({ message: "You Have Already Cancel This Request" });
+        } catch (error) {
+          return res.status(500).send({
+            message: "Internal Server Error",
+          });
+        }
+      }
+    })
+    .catch((error) => {
+      return res.status(500).send({
+        message: "Internal Server Error",
+      });
+    });
+};
+exports.acceptFriendRequest = async (req, res) => {
+  // const { loginuser } = req.query;
+  const { userOne, userTwo } = req.body;
+
+  if (!userOne || !userTwo) {
+    return res.status(400).send({
+      message: "invalid request",
+    });
+  }
+  const isLoginUser = await haveUser(userOne);
+
+  if (isLoginUser?.error || !isLoginUser) {
+    return res.status(404).send({
+      message: "Invalid Login User",
+    });
+  }
+  const isFriendAccount = await haveUser(userTwo);
+
+  if (isFriendAccount?.error || !isFriendAccount) {
+    return res.status(404).send({
+      message: "Invalid Friend Id",
+    });
+  }
+
+  const haveFriendRequest = await isFriendRequest(userTwo, userOne);
+
+  if (haveFriendRequest?.error || !haveFriendRequest) {
+    return res.status(410).send({ message: "No Request Found" });
+  }
+
+  if (haveFriendRequest.receiver._id != userOne) {
+    return res.status(400).send({ message: "You Don't Accept This Request" });
+  }
+
+  const haveFriend = await isFriend(userOne, userTwo);
+
+  if (haveFriend?.error) {
+    return res.status(500).send({
+      message: "Internal Server Error",
+    });
+  }
+
+  if (haveFriend._id) {
+    await FriendRequest.deleteOne({ _id: haveFriendRequest._id });
+    return res.status(400).send({ message: "You Are Already Friend" });
+  }
+
+  let data = new Friend(req.body);
+  try {
+    // console.log("hi");
+    await data.save();
+    await FriendRequest.deleteOne({ _id: isRequest._id });
+
+    return res.status(200).send({ message: "Request Accept Sucessfull" });
+  } catch (error) {
+    return res.status(500).send({
+      message: "Internal Server Error",
+    });
+  }
+
+  // try {
+};
+exports.allFriend = async (req, res) => {
+  const { loginuser } = req.query;
+
+  if (!loginuser) {
+    return res.status(404).send({ message: "User not found" });
+  }
+  const isAccount = await haveUser(loginuser);
+
+  if (!isAccount || isAccount?.error) {
+    return res.status(404).send({ message: "User not found" });
+  }
+  try {
+    // console.log("hi")
+    let data = await Friend.find({
+      $or: [{ userOne: loginuser }, { userTwo: loginuser }],
+    }).populate(
+      [
+        { path: "userOne", select: "-password -verified -otp" }, // Populate another field if necessary
+        { path: "userTwo", select: "-password -verified -otp" },
+      ] // Populate another field if necessary
+    );
+    // console.log(data);
+    // .select("-password -verified -otp");
+    return res.status(200).send({ data });
+  } catch (error) {
+    return res.status(500).send({
+      message: "Internal Server Error",
+    });
+  }
+};
+// catch (error) {
+//   return res.status(500).send({
+//     message: "Internal Server Error",
+//   });
