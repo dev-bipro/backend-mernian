@@ -14,6 +14,9 @@ const {
   cancelSendFriendRequest,
   acceptFriendRequest,
   allFriend,
+  rejectFriendRequest,
+  deleteFriend,
+  blockUser,
 } = require("../../../controllers/auth/userController");
 const {
   test,
@@ -34,6 +37,8 @@ _.route("/user/friendrequest")
   .get(allFriendRequest)
   .put(allSemdFriendRequest)
   .delete(cancelSendFriendRequest);
-_.route("/user/friend").post(acceptFriendRequest).get(allFriend);
+_.route("/user/rejectfriendrequest").delete(rejectFriendRequest);
+_.route("/user/friend").post(acceptFriendRequest).get(allFriend).delete(deleteFriend);
+_.route("/user/block").post(blockUser).get(allFriend).delete(deleteFriend);
 
 module.exports = _;

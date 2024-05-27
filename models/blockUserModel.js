@@ -1,23 +1,23 @@
 const { Schema, models, model, Types } = require("mongoose");
 
-const friendSchema = new Schema({
-  userOne: {
+const blockUserSchema = new Schema({
+  blockBy: {
     type: Types.ObjectId,
     ref: "User",
     required: true,
   },
-  userTwo: {
+  blockTo: {
     type: Types.ObjectId,
     ref: "User",
     required: true,
   },
 
-  friendTime: {
+  blockTime: {
     type: Date,
     default: Date.now(),
   },
 });
 
-const Friend = models.Friend || model("Friend", friendSchema);
+const Block = models.Block || model("Block", blockUserSchema);
 
-module.exports = Friend;
+module.exports = Block;

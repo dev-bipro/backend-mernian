@@ -22,6 +22,7 @@ const FriendRequest = require("../../models/friendRequestModel");
 const Friend = require("../../models/friendModel");
 const isFriendRequest = require("../../helpers/user/isFriendRequest");
 const isFriend = require("../../helpers/user/isFriend");
+const Block = require("../../models/blockUserModel");
 
 exports.createUser = async (req, res) => {
   // res.send("ami create user");
@@ -530,7 +531,11 @@ exports.allFriendRequest = async (req, res) => {
     let data = await FriendRequest.find({
       receiver: loginuser,
     }).populate(
-      { path: "sender", select: "-password -verified -otp" } // Populate another field if necessary
+      {
+        path: "sender",
+        select: "-password -verified -otp",
+        populate: "profilePic",
+      } // Populate another field if necessary
     );
     // .select("-password -verified -otp");
     return res.status(200).send({ data });
@@ -663,7 +668,7 @@ exports.acceptFriendRequest = async (req, res) => {
     });
   }
 
-  if (haveFriend._id) {
+  if (haveFriend?._id) {
     await FriendRequest.deleteOne({ _id: haveFriendRequest._id });
     return res.status(400).send({ message: "You Are Already Friend" });
   }
@@ -672,7 +677,7 @@ exports.acceptFriendRequest = async (req, res) => {
   try {
     // console.log("hi");
     await data.save();
-    await FriendRequest.deleteOne({ _id: isRequest._id });
+    await FriendRequest.deleteOne({ _id: haveFriendRequest._id });
 
     return res.status(200).send({ message: "Request Accept Sucessfull" });
   } catch (error) {
@@ -682,6 +687,27 @@ exports.acceptFriendRequest = async (req, res) => {
   }
 
   // try {
+};
+
+exports.rejectFriendRequest = async (req, res) => {
+  console.log(req.query);
+  const { _id } = req.query;
+
+  if (!_id) {
+    return res.status(400).send({ message: "Id Not Found" });
+  }
+  try {
+    const data = await FriendRequest.deleteOne({ _id });
+    console.log(data);
+    if (data.deletedCount > 0) {
+      return res.status(200).send({ message: "You Reject Friend Request" });
+    }
+    return res.status(404).send({ message: "No Request Found" });
+  } catch (error) {
+    return res.status(500).send({
+      message: "Internal Server Error",
+    });
+  }
 };
 exports.allFriend = async (req, res) => {
   const { loginuser } = req.query;
@@ -698,15 +724,45 @@ exports.allFriend = async (req, res) => {
     // console.log("hi")
     let data = await Friend.find({
       $or: [{ userOne: loginuser }, { userTwo: loginuser }],
-    }).populate(
-      [
-        { path: "userOne", select: "-password -verified -otp" }, // Populate another field if necessary
-        { path: "userTwo", select: "-password -verified -otp" },
-      ] // Populate another field if necessary
-    );
+    }).populate([
+      {
+        path: "userOne",
+        select: "-password -verified -otp",
+        match: { _id: { $ne: loginuser } },
+        populate: "profilePic",
+      },
+      {
+        path: "userTwo",
+        select: "-password -verified -otp",
+        match: { _id: { $ne: loginuser } },
+        populate: "profilePic",
+      },
+    ]);
+    // .populate("profilePic");
     // console.log(data);
     // .select("-password -verified -otp");
     return res.status(200).send({ data });
+  } catch (error) {
+    return res.status(500).send({
+      message: "Internal Server Error",
+    });
+  }
+};
+
+exports.deleteFriend = async (req, res) => {
+  console.log(req.query);
+  const { _id } = req.query;
+
+  if (!_id) {
+    return res.status(400).send({ message: "Id Not Found" });
+  }
+  try {
+    const data = await Friend.deleteOne({ _id });
+    console.log(data);
+    if (data.deletedCount > 0) {
+      return res.status(200).send({ message: "You Delete Friend" });
+    }
+    return res.status(404).send({ message: "No Friend Found" });
   } catch (error) {
     return res.status(500).send({
       message: "Internal Server Error",
@@ -717,3 +773,64 @@ exports.allFriend = async (req, res) => {
 //   return res.status(500).send({
 //     message: "Internal Server Error",
 //   });
+
+exports.blockUser = async (req, res) => {
+  // const { loginuser } = req.query;
+  const { blockBy, blockTo } = req.body;
+
+  if (!blockBy || !blockTo) {
+    return res.status(400).send({
+      message: "invalid request",
+    });
+  }
+  const isLoginUser = await haveUser(blockBy);
+
+  if (isLoginUser?.error || !isLoginUser) {
+    return res.status(404).send({
+      message: "Invalid Login User",
+    });
+  }
+  const isBlockTo = await haveUser(blockTo);
+
+  if (isBlockTo?.error || !isBlockTo) {
+    return res.status(404).send({
+      message: "Invalid Block To Id",
+    });
+  }
+
+  let data = new Block(req.body);
+  try {
+    data = await data.save();
+    await Friend.deleteOne({
+      $or: [
+        {
+          userOne: blockBy,
+          userTwo: blockTo,
+        },
+        {
+          userOne: blockTo,
+          userTwo: blockBy,
+        },
+      ],
+    });
+    await FriendRequest.deleteOne({
+      $or: [
+        {
+          sender: blockBy,
+          receiver: blockTo,
+        },
+        {
+          sender: blockTo,
+          receiver: blockBy,
+        },
+      ],
+    });
+
+    return res.status(200).send({ message: "Block Successfull" });
+  } catch (error) {
+    return res.status(500).send({
+      message: "Internal Server Error",
+    });
+  }
+  // try {
+};
