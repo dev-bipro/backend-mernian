@@ -23,6 +23,8 @@ const Friend = require("../../models/friendModel");
 const isFriendRequest = require("../../helpers/user/isFriendRequest");
 const isFriend = require("../../helpers/user/isFriend");
 const Block = require("../../models/blockUserModel");
+const isBlock = require("../../helpers/user/isBlock");
+const loginUserBlockList = require("../../helpers/user/loginUserBlockList");
 
 exports.createUser = async (req, res) => {
   // res.send("ami create user");
@@ -236,15 +238,28 @@ exports.allUser = async (req, res) => {
   if (!isAccount || isAccount?.error) {
     return res.status(404).send({ message: "User not found" });
   }
+
+  const blockList = await loginUserBlockList(loginuser);
+  if (blockList?.error) {
+    return res.status(500).send({
+      message: "Internal Server Error",
+    });
+  }
+  console.log(blockList);
+
   try {
     let data = await User.find({
-      _id: { $ne: loginuser },
-      verified: true,
+      $and: [
+        { _id: { $ne: loginuser } },
+        { _id: { $nin: blockList } },
+        { verified: true },
+      ],
     })
       .select("-password -verified -otp")
       .populate("profilePic coverPic");
     return res.status(200).send({ data });
   } catch (error) {
+    console.log("ami e oi hala error");
     return res.status(500).send({
       message: "Internal Server Error",
     });
@@ -461,6 +476,25 @@ exports.sendFriendRequest = async (req, res) => {
     return res.status(404).send({
       message: "Invalid Receiver Id",
     });
+  }
+
+  const haveBlock = await isBlock(sender, receiver);
+
+  if (haveBlock?.error) {
+    return res.status(500).send({
+      message: "Internal Server Error",
+    });
+  }
+  if (haveBlock) {
+    if (haveBlock.blockBy == sender) {
+      return res.status(400).send({
+        message: "You Are Already Block This User",
+      });
+    } else {
+      return res.status(400).send({
+        message: "This User Already Block You",
+      });
+    }
   }
 
   const haveFriend = await isFriend(sender, receiver);
@@ -796,6 +830,25 @@ exports.blockUser = async (req, res) => {
     return res.status(404).send({
       message: "Invalid Block To Id",
     });
+  }
+
+  const haveBlock = await isBlock(blockBy, blockTo);
+
+  if (haveBlock?.error) {
+    return res.status(500).send({
+      message: "Internal Server Error",
+    });
+  }
+  if (haveBlock) {
+    if (haveBlock.blockBy == blockBy) {
+      return res.status(400).send({
+        message: "You Are Already Block This User",
+      });
+    } else {
+      return res.status(400).send({
+        message: "This User Already Block You",
+      });
+    }
   }
 
   let data = new Block(req.body);
